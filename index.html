@@ -1,60 +1,72 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-<title>Safe URL Checker</title>
-
-<style>
-body{
-font-family: Arial;
-text-align:center;
-background:#f2f2f2;
-padding:40px;
-}
-
-input{
-padding:10px;
-width:300px;
-font-size:16px;
-}
-
-button{
-padding:10px 20px;
-font-size:16px;
-margin-left:10px;
-cursor:pointer;
-}
-
-#result{
-margin-top:20px;
-font-weight:bold;
-}
-</style>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Safe URL Checker</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
+  <main class="app">
+    <header class="hero">
+      <div class="hero-inner">
+        <h1>Safe URL Checker</h1>
+        <p class="tagline">Quickly scan a link for malware, phishing, and suspicious signals.</p>
+      </div>
+    </header>
 
-<h1>🔎 Safe URL Checker</h1>
-<p>Enter a website link to check:</p>
+    <section class="scanner-card">
+      <div class="left">
+        <label for="url-input">Enter URL to scan</label>
+        <input id="url-input" placeholder="https://example.com" />
 
-<input id="urlInput" placeholder="https://example.com">
-<button onclick="check()">Check</button>
+        <div class="actions">
+          <button id="scan-btn" class="btn primary">Scan</button>
+          <button id="clear-btn" class="btn">Clear</button>
+        </div>
 
-<p id="result"></p>
+        <div id="status" class="status muted">Idle</div>
 
-<script>
-function check(){
-let url=document.getElementById("urlInput").value;
+        <div id="result-panel" class="result-panel hidden">
+          <div class="verdict" id="verdict">—</div>
 
-if(url===""){
-document.getElementById("result").innerText="Please enter a URL";
-return;
-}
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-title">Malicious</div>
+              <div class="stat-value" id="malicious-count">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Suspicious</div>
+              <div class="stat-value" id="suspicious-count">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Undetected</div>
+              <div class="stat-value" id="undetected-count">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Scanners</div>
+              <div class="stat-value" id="scanners-total">0</div>
+            </div>
+          </div>
 
-document.getElementById("result").innerText=
-"Scanning "+url+"...";
-}
-</script>
+          <div class="more">
+            <a id="vt-link" href="#" target="_blank">View full report</a>
+          </div>
+        </div>
 
+      </div>
+
+      <div class="right">
+        <div class="promo">
+          <h3>Protection like a pro</h3>
+          <p>Scans are performed using multiple industry engines. Fast, clear verdicts and a clean UI inspired by modern security apps.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">Made for testing · Remember: no scanner is perfect</footer>
+  </main>
+
+  <script src="/main.js"></script>
 </body>
-</html
+</html>
