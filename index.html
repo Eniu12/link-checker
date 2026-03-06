@@ -1,3 +1,5 @@
+
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -70,3 +72,274 @@
   <script src="/main.js"></script>
 </body>
 </html>
+```
+
+### `public/style.css`
+
+```css
+:root{
+  --bg:#0f1724; /* deep slate */
+  --card:#0b1220;
+  --accent:#00a6ff;
+  --success:#28c76f;
+  --danger:#ff6b6b;
+  --muted:#9aa7b2;
+  --glass: rgba(255,255,255,0.03);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+body{background:linear-gradient(180deg,#071021 0%, #081427 100%);color:#e6eef6}
+
+.app{max-width:960px;margin:32px auto;padding:20px}
+.hero{padding:28px 24px;border-radius:12px;background:linear-gradient(90deg, rgba(0,166,255,0.06), rgba(255,255,255,0.02));box-shadow:0 6px 24px rgba(2,6,23,0.6)}
+.hero-inner h1{margin:0;font-size:28px}
+.tagline{color:var(--muted);margin-top:6px}
+
+.scanner-card{display:flex;margin-top:20px;gap:20px}
+.scanner-card .left{flex:1;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+.scanner-card .right{width:320px}
+label{display:block;color:var(--muted);margin-bottom:8px}
+input#url-input{width:100%;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-size:15px}
+.actions{margin-top:12px;display:flex;gap:10px}
+.btn{padding:10px 16px;border-radius:8px;border:0;cursor:pointer;background:transparent;color:inherit}
+.btn.primary{background:linear-gradient(90deg,var(--accent),#00d0ff);color:#012;box-shadow:0 6px 20px rgba(0,166,255,0.12)}
+.status{margin-top:14px;color:var(--muted)}
+.result-panel{margin-top:18px;padding:14px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+.result-panel.hidden{display:none}
+.verdict{font-weight:700;font-size:18px;margin-bottom:12px}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;min-width:120px;background:rgba(255,255,255,0.02);padding:10px;border-radius:8px}
+.stat-title{font-size:12px;color:var(--muted)}
+.stat-value{font-size:18px;margin-top:6px}
+.more{margin-top:12px}
+.more a{color:var(--accent);text-decoration:none}
+.promo{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:12px}
+.foot{text-align:center;color:var(--muted);margin-top:18px}
+
+/* small screens */
+@media (max-width:880px){
+  .scanner-card{flex-direction:column}
+  .right{width:100%}
+}
+```
+
+### `public/main.js`
+
+```javascript
+const scanBtn = document.getElementById('scan-btn');
+const clearBtn = document.getElementById('clear-btn');
+const urlInput = document.getElementById('url-input');
+const statusEl = document.getElementById('status');
+const resultPanel = document.getElementById('result-panel');
+const verdictEl = document.getElementById('verdict');
+const maliciousEl = document.getElementById('malicious-count');
+const suspiciousEl = document.getElementById('suspicious-count');
+const undetectedEl = document.getElementById('undetected-count');
+const scannersEl = document.getElementById('scanners-total');
+const vtLink = document.getElementById('vt-link');
+
+scanBtn.addEventListener('click', async ()=>{
+  const url = urlInput.value.trim();
+  if(!url){
+    statusEl.innerText = 'Enter a URL first';
+    return;
+  }
+
+  // reset UI
+  resultPanel.classList.add('hidden');
+  statusEl.innerText = 'Scanning...';
+  scanBtn.disabled = true;
+
+  try{
+    const res = await fetch('/api/scan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+
+    if(!res.ok){
+      const err = await res.json().catch(()=>({message:'Scan failed'}));
+      throw new Error(err.message || 'Scan failed');
+    }
+
+    const data = await res.json();
+
+    // update UI
+    maliciousEl.innerText = data.malicious || 0;
+    suspiciousEl.innerText = data.suspicious || 0;
+    undetectedEl.innerText = data.undetected || 0;
+    scannersEl.innerText = data.total || 0;
+
+    const isMalicious = (data.malicious || 0) > 0;
+    const isSuspicious = (data.suspicious || 0) > 0;
+
+    if(isMalicious) {
+      verdictEl.innerText = '🚨 Malicious — Do not visit';
+      verdictEl.style.color = 'var(--danger)';
+    } else if(isSuspicious) {
+      verdictEl.innerText = '⚠️ Suspicious — caution advised';
+      verdictEl.style.color = 'orange';
+    } else {
+      verdictEl.innerText = '✅ Clean — no engines detected threats';
+      verdictEl.style.color = 'var(--success)';
+    }
+
+    vtLink.href = data.vt_url || '#';
+    resultPanel.classList.remove('hidden');
+    statusEl.innerText = 'Scan complete';
+
+  }catch(err){
+    console.error(err);
+    statusEl.innerText = 'Error: ' + (err.message || 'scan failed');
+  }finally{
+    scanBtn.disabled = false;
+  }
+});
+
+clearBtn.addEventListener('click', ()=>{
+  urlInput.value = '';
+  resultPanel.classList.add('hidden');
+  statusEl.innerText = 'Idle';
+});
+```
+
+---
+
+### `server.js`
+
+```javascript
+// Simple Express server that serves the static frontend and proxies scans to VirusTotal v3 API.
+require('dotenv').config();
+const express = require('express');
+const fetch = require('node-fetch');
+const cors = require('cors');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const API_KEY = process.env.VIRUSTOTAL_API_KEY;
+if(!API_KEY){
+  console.warn('Warning: VIRUSTOTAL_API_KEY not set. The scan endpoint will return 500 until it is configured.');
+}
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// Helper: pause
+const wait = ms => new Promise(res => setTimeout(res, ms));
+
+app.post('/api/scan', async (req, res) => {
+  const { url } = req.body || {};
+  if(!url) return res.status(400).json({message:'missing url in body'});
+  if(!API_KEY) return res.status(500).json({message:'server misconfigured: missing VIRUSTOTAL_API_KEY'});
+
+  try{
+    // 1) Request a URL analysis
+    const params = new URLSearchParams();
+    params.append('url', url);
+
+    const postResp = await fetch('https://www.virustotal.com/api/v3/urls', {
+      method: 'POST',
+      headers: {
+        'x-apikey': API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    if(postResp.status === 401) return res.status(502).json({message:'VirusTotal API returned 401 Unauthorized — check API key'});
+    const postJson = await postResp.json();
+
+    if(!postJson || !postJson.data || !postJson.data.id) {
+      return res.status(502).json({message:'unexpected response from VirusTotal', raw: postJson});
+    }
+
+    const analysisId = postJson.data.id; // e.g. "analysis:xxxxx"
+
+    // 2) Poll analysis endpoint until finished (small loop)
+    let analysis = null;
+    const maxAttempts = 8;
+    for(let i=0;i<maxAttempts;i++){
+      const getResp = await fetch(`https://www.virustotal.com/api/v3/analyses/${analysisId}`, {
+        headers: { 'x-apikey': API_KEY }
+      });
+      const getJson = await getResp.json();
+
+      if(getJson && getJson.data && getJson.data.attributes && getJson.data.attributes.status === 'completed'){
+        analysis = getJson.data;
+        break;
+      }
+
+      // wait then continue
+      await wait(1500);
+    }
+
+    if(!analysis) return res.status(504).json({message:'analysis did not complete in time'});
+
+    // 3) Extract stats
+    const stats = analysis.attributes.stats || {};
+    const malicious = stats.malicious || 0;
+    const suspicious = stats.suspicious || 0;
+    const harmless = stats.harmless || 0;
+    const undetected = stats.undetected || 0;
+    const timeout = stats.timeout || 0;
+    const total = malicious + suspicious + harmless + undetected + timeout;
+
+    // 4) Build a VirusTotal link to the url report
+    // Sometimes we can get the URL object link from analysis.relationships?. But we will craft a link to the public report page using the url id returned earlier.
+    const vt_url = `https://www.virustotal.com/gui/url/${encodeURIComponent(analysisId)}`;
+
+    return res.json({
+      malicious, suspicious, harmless, undetected, timeout, total, vt_url
+    });
+
+  }catch(err){
+    console.error('scan error', err);
+    return res.status(500).json({message:'scan failed', error: err.message});
+  }
+});
+
+app.listen(PORT, ()=>{
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+---
+
+### `package.json`
+
+```json
+{
+  "name": "safe-url-checker",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
+  }
+}
+```
+
+---
+
+### `.env.example`
+
+```
+VIRUSTOTAL_API_KEY=your_api_key_here
+PORT=3000
+```
+
+---
+
+### `README.md` (quick start)
+
+````md
+# Safe URL Checker (local)
+
+
